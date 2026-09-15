@@ -1,8 +1,16 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { CalendarCheck, CheckCircle } from 'lucide-react'
+import { CalendarCheck, CheckCircle, Loader2 } from 'lucide-react'
 import SectionLabel from '../components/SectionLabel'
 import { slideLeft, slideRight, viewportOnce } from '../lib/motion'
+import { submitAppointmentRequest } from '../lib/api'
+
+function splitName(fullName: string): { first_name: string; last_name: string } {
+  const parts = fullName.trim().split(/\s+/)
+  return parts.length > 1
+    ? { first_name: parts[0], last_name: parts.slice(1).join(' ') }
+    : { first_name: parts[0], last_name: parts[0] }
+}
 
 const SERVICES = [
   'Outpatient (General)',
@@ -47,6 +55,9 @@ export default function Appointment() {
   const [date,    setDate]    = useState('')
   const [service, setService] = useState('')
   const [sent,    setSent]    = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted,  setSubmitted]  = useState(false)
+  const [submitError, setSubmitError] = useState('')
 
   function buildMessage() {
     return encodeURIComponent(
@@ -59,7 +70,28 @@ export default function Appointment() {
     setSent(true)
   }
 
-  const ready = name.trim() && date && service
+  async function handleSubmit() {
+    if (!ready || submitting) return
+    setSubmitting(true)
+    setSubmitError('')
+    try {
+      const { first_name, last_name } = splitName(name)
+      await submitAppointmentRequest({
+        first_name,
+        last_name,
+        phone_number: phone,
+        appointment_date: date,
+        reason: `Requested service: ${service}`,
+      })
+      setSubmitted(true)
+    } catch {
+      setSubmitError("Couldn't send your request — please try WhatsApp instead, or call us directly.")
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const ready = name.trim() && phone.trim() && date && service
 
   return (
     <section id="appointment" className="py-20 lg:py-24 bg-slate-50">
@@ -94,7 +126,9 @@ export default function Appointment() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Phone</label>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Phone <span className="text-rose-500">*</span>
+                  </label>
                   <input
                     type="tel"
                     value={phone}
@@ -135,15 +169,40 @@ export default function Appointment() {
             </div>
 
             <div className="border-t border-gray-100 px-6 py-4 bg-gray-50 space-y-3">
-              {!ready ? (
+              {submitted ? (
+                <motion.div
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex items-center justify-center gap-2 text-sm text-teal-700 font-semibold py-2"
+                >
+                  <CheckCircle size={16} className="flex-shrink-0" />
+                  Request received — our team will call you shortly to confirm.
+                </motion.div>
+              ) : !ready ? (
                 <p className="text-xs text-gray-400 text-center">
                   Complete the required fields (<span className="text-rose-400">*</span>) to continue
                 </p>
               ) : (
                 <>
-                  <p className="text-xs font-semibold text-gray-500 text-center uppercase tracking-widest">
-                    Send booking via WhatsApp
-                  </p>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="w-full flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-60 text-white rounded-xl py-3 font-semibold text-sm transition-colors cursor-pointer"
+                  >
+                    {submitting ? <Loader2 size={16} className="animate-spin" /> : <CalendarCheck size={16} />}
+                    {submitting ? 'Sending…' : 'Request Appointment'}
+                  </button>
+
+                  {submitError && (
+                    <p className="text-xs text-rose-500 text-center">{submitError}</p>
+                  )}
+
+                  <div className="flex items-center gap-3 pt-1">
+                    <span className="flex-1 h-px bg-gray-200" />
+                    <span className="text-[11px] text-gray-400 uppercase tracking-widest">or message us</span>
+                    <span className="flex-1 h-px bg-gray-200" />
+                  </div>
+
                   <div className="grid sm:grid-cols-2 gap-3">
                     {NUMBERS.map(n => (
                       <button
@@ -158,7 +217,7 @@ export default function Appointment() {
                 </>
               )}
 
-              {sent && (
+              {sent && !submitted && (
                 <motion.p
                   initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}

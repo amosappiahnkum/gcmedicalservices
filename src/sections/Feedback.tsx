@@ -4,7 +4,7 @@ import SectionLabel from '../components/SectionLabel'
 import { fadeUp, stagger, viewportOnce } from '../lib/motion'
 
 // Replace with your actual Google Forms link
-const FORM_LINK = 'https://forms.gle/your-form-id'
+const FORM_LINK = 'https://docs.google.com/forms/d/1PY30GQOXzBgYkL0dYAb-ovWiLINSGHzsQ7uDQX1Qk5E/edit'
 
 const ASPECTS = [
   { label: 'Doctor Consultation', emoji: '🩺' },
